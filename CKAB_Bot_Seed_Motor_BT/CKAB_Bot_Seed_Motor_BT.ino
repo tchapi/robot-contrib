@@ -39,7 +39,15 @@ int  speed = 150;
 
 const int LED = 5;		// a LED on pin 5, nice for debugging. goes on when data on BT received.
 boolean btConnectable = false;	// set by the bluetooth board when connected
-char cmd = ' ';
+
+
+#include <SoftwareSerial.h>   //Software Serial Port
+#define RxD 6
+#define TxD 7
+
+#define DEBUG_ENABLED  1
+ 
+SoftwareSerial blueToothSerial(RxD,TxD);
 
 //================================================================
 // setup
@@ -59,38 +67,37 @@ void setup() {
   
 	pinMode(LED, OUTPUT);
   
-	//
-	// bluetooth stuff
-	//
-	Serial.begin(38400);
-	delay(100);
-	// set bluetooth name
-	Serial.print("\r\n+STNA=Robot\r\n");
-	delay(100);
-	// permit paired device to connect
-	Serial.print("\r\n+STOAUT=1\r\n"); // 
-	delay(100);
-	// auto-connection forbidden
-	Serial.print("\r\n+STAUTO=0\r\n");
-	delay(100);
-	// set to slave mode
-	Serial.print("\r\n+STWMOD=0\r\n");
-	delay(2000); // must be 2000 cf. seed docs
-	// make connectable
-	Serial.print("\r\n+INQ=1\r\n");
-	btConnectable = true;
-	delay(500);
+        Serial.begin(9600);
+        pinMode(RxD, INPUT);
+        pinMode(TxD, OUTPUT);
+        setupBlueToothConnection();
+        //wait 1s and flush the serial buffer
+        delay(1000);
+        Serial.flush();
+        blueToothSerial.flush();
 
-	// signalize that we are done with setup()
-	//analogWrite(LED_STRIP, 50);
+}
+
+void setupBlueToothConnection()
+{
+  blueToothSerial.begin(38400); //Set BluetoothBee BaudRate to default baud rate 38400
+  blueToothSerial.print("\r\n+STWMOD=0\r\n");//set the bluetooth work in master mode
+  blueToothSerial.print("\r\n+STNA=Robot\r\n");//set the bluetooth name as "SeeedBTMaster"
+  blueToothSerial.print("\r\n+STOAUT=1\r\n");
+  blueToothSerial.print("\r\n+STAUTO=0\r\n");// Auto-connection is forbidden here
+  delay(2000); // This delay is required.
+  blueToothSerial.print("\r\n+INQ=1\r\n");//make the master inquire
+  Serial.println("Done setuping Bluetooth.");
+  delay(2000); // This delay is required.
+  btConnectable = true;
 }
 
 //================================================================
-// loop()
+// doAction()
 //================================================================
-void loop(){
-  
-	if (cmd == 'f') {
+void doAction(char cmd) {
+	
+        if (cmd == 'f') {
 		forward();
 		delay(400);
 		stop();
@@ -110,27 +117,28 @@ void loop(){
 		delay(120);
 		stop();
 	}
-	
-	cmd = ' ';
-	digitalWrite(LED, LOW);
 }
 
-
 //================================================================
-// serialEvent()
+// loop()
 //================================================================
-void serialEvent() {
-	
-	digitalWrite(LED, HIGH);
-			
-	while (Serial.available()) {
+void loop(){
 
-		char inChar = (char)Serial.read(); 
-
-		if (inChar != '\n')
-			cmd = inChar;
-
-	}
+  char recvChar;
+  while(1){
+    if(blueToothSerial.available()){//check if there's any data sent from the remote bluetooth shield
+      digitalWrite(LED,HIGH);
+      recvChar = blueToothSerial.read();
+      Serial.print(recvChar);
+      doAction(recvChar);
+    }
+    if(Serial.available()){//check if there's any data sent from the local serial terminal, you can add the other applications here
+      recvChar  = Serial.read();
+      blueToothSerial.print(recvChar);
+    }
+    digitalWrite(LED,LOW);
+  }
+  
 }
 
 //================================================================
@@ -142,10 +150,11 @@ void backward()
 {
 	analogWrite(speedPinA, speed);
 	analogWrite(speedPinB, speed);
-	digitalWrite(pinB2,HIGH);
-	digitalWrite(pinB1,LOW);
-	digitalWrite(pinA2,LOW);
-	digitalWrite(pinA1,HIGH);
+
+	digitalWrite(pinB2,LOW);
+	digitalWrite(pinB1,HIGH);
+	digitalWrite(pinA2,HIGH);
+	digitalWrite(pinA1,LOW);
 }
 
 void forward()
@@ -153,10 +162,10 @@ void forward()
 	analogWrite(speedPinA, speed);
 	analogWrite(speedPinB, speed);
 	
-	digitalWrite(pinB2,LOW);
-	digitalWrite(pinB1,HIGH);
-	digitalWrite(pinA2,HIGH);
-	digitalWrite(pinA1,LOW);
+	digitalWrite(pinB2,HIGH);
+	digitalWrite(pinB1,LOW);
+	digitalWrite(pinA2,LOW);
+	digitalWrite(pinA1,HIGH);
 }
 
 void left()
