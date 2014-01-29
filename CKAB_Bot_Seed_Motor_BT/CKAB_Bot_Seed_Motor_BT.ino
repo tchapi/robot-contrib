@@ -37,11 +37,14 @@ int  speed = 150;
 
 //------------------------
 
-const int LED = 5;		// a LED on pin 5, nice for debugging. goes on when data on BT received.
+const int LED_BT = 5;		// a LED on pin 5, nice for debugging. goes on when data on BT received.
+const int LED_SERIAL = 2;       // a LED on pin 3, nice for debugging. goes on when data on XBEE received.
+const int XBEE_POWER_GND = 3;   // Give some power/Gnd to the Xbee shield that normally is powered by ICSP
+const int XBEE_POWER_5V = 4;
 boolean btConnectable = false;	// set by the bluetooth board when connected
 
 
-#include <SoftwareSerial.h>   //Software Serial Port
+#include <SoftwareSerial.h>   //Software Serial Port for BT
 #define RxD 6
 #define TxD 7
 
@@ -65,7 +68,12 @@ void setup() {
 	pinMode(pinB2,OUTPUT);
 	pinMode(speedPinB,OUTPUT);
   
-	pinMode(LED, OUTPUT);
+	pinMode(LED_BT, OUTPUT);
+        pinMode(LED_SERIAL, OUTPUT);
+        pinMode(XBEE_POWER_5V, OUTPUT);
+        pinMode(XBEE_POWER_GND, OUTPUT);
+        digitalWrite(XBEE_POWER_GND, LOW);
+        digitalWrite(XBEE_POWER_5V, HIGH);
   
         Serial.begin(9600);
         pinMode(RxD, INPUT);
@@ -75,48 +83,70 @@ void setup() {
         delay(1000);
         Serial.flush();
         blueToothSerial.flush();
+}
 
+//
+// blink_led() is just a helper to blink a led. YEAH.
+// 
+void blink_led(int LED) {
+    digitalWrite(LED, HIGH);
+    delay(100);
+    digitalWrite(LED, LOW);
+    delay(100);
+    digitalWrite(LED, HIGH);
+    delay(100);
+    digitalWrite(LED, LOW);
+    delay(100);
+    digitalWrite(LED, HIGH);
+    delay(100);
+    digitalWrite(LED, LOW);
 }
 
 void setupBlueToothConnection()
 {
-  blueToothSerial.begin(38400); //Set BluetoothBee BaudRate to default baud rate 38400
-  blueToothSerial.print("\r\n+STWMOD=0\r\n");//set the bluetooth work in master mode
-  blueToothSerial.print("\r\n+STNA=Robot\r\n");//set the bluetooth name as "SeeedBTMaster"
-  blueToothSerial.print("\r\n+STOAUT=1\r\n");
-  blueToothSerial.print("\r\n+STAUTO=0\r\n");// Auto-connection is forbidden here
-  delay(2000); // This delay is required.
-  blueToothSerial.print("\r\n+INQ=1\r\n");//make the master inquire
-  Serial.println("Done setuping Bluetooth.");
-  delay(2000); // This delay is required.
-  btConnectable = true;
+        blueToothSerial.begin(38400); //Set BluetoothBee BaudRate to default baud rate 38400
+        blueToothSerial.print("\r\n+STWMOD=0\r\n");//set the bluetooth work in master mode
+        blueToothSerial.print("\r\n+STNA=Robot\r\n");//set the bluetooth name as "SeeedBTMaster"
+        blueToothSerial.print("\r\n+STOAUT=1\r\n");
+        blueToothSerial.print("\r\n+STAUTO=0\r\n");// Auto-connection is forbidden here
+        
+        delay(2000); // This delay is required.
+        
+        blueToothSerial.print("\r\n+INQ=1\r\n");//make the master inquire
+        
+        Serial.println("Done setuping Bluetooth.");
+        
+        blink_led(LED_BT);
+        
+        delay(2000); // This delay is required.
+        btConnectable = true;
 }
 
 //================================================================
 // doAction()
 //================================================================
 void doAction(char cmd) {
-	
+      	
         if (cmd == 'f') {
-		forward();
-		delay(400);
-		stop();
-	}
-	else if (cmd == 'b') {
-		backward();
-		delay(400);
-		stop();
-	}
-	else if (cmd == 'l') {
-		left();
-		delay(120);
-		stop();
-	}
-	else if (cmd == 'r') {
-		right();
-		delay(120);
-		stop();
-	}
+      		forward();
+      		delay(400);
+      		stop();
+      	}
+      	else if (cmd == 'b') {
+      		backward();
+      		delay(400);
+      		stop();
+      	}
+      	else if (cmd == 'l') {
+      		left();
+      		delay(120);
+      		stop();
+      	}
+      	else if (cmd == 'r') {
+      		right();
+      		delay(120);
+      		stop();
+      	}
 }
 
 //================================================================
@@ -125,18 +155,27 @@ void doAction(char cmd) {
 void loop(){
 
   char recvChar;
+  
   while(1){
+    
     if(blueToothSerial.available()){//check if there's any data sent from the remote bluetooth shield
-      digitalWrite(LED,HIGH);
+      digitalWrite(LED_BT,HIGH);
       recvChar = blueToothSerial.read();
       Serial.print(recvChar);
       doAction(recvChar);
     }
+
     if(Serial.available()){//check if there's any data sent from the local serial terminal, you can add the other applications here
+      digitalWrite(LED_SERIAL ,HIGH);
       recvChar  = Serial.read();
-      blueToothSerial.print(recvChar);
+      //blueToothSerial.print(recvChar);
+      Serial.print(recvChar);
+      doAction(recvChar);
     }
-    digitalWrite(LED,LOW);
+    
+    digitalWrite(LED_BT,LOW);
+    digitalWrite(LED_SERIAL ,LOW);
+    
   }
   
 }
